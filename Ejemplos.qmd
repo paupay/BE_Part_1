@@ -1,0 +1,213 @@
+---
+title: "Bioestadística con R: Ejemplos"
+format: html
+editor: visual
+---
+
+```{r}
+#| code-fold: true
+#| label: load-packages
+#| warning: false
+#| message: false
+
+library(tidyverse)
+library(RColorBrewer)
+library(plotly)
+
+```
+# Distribución muestral
+
+Consideremos una variable aleatoria $X$ con distribución $N(150, 15^2)$. La gráfica de la respectiva función de densidad se muestra a continuación:
+
+
+
+
+```{r}
+#| code-fold: true
+
+ggplot()+
+  geom_function(fun=dnorm, color="firebrick", args = list(mean = 150, sd = 15), xlim=c(100,  200))+
+  theme_bw()
+
+
+```
+
+
+Suponiendo que la muestra es de tamaño $n=100$, tendremos que la distribución muestral está dada por $\bar{X}\sim N(150, 15^2/100)$. Generamos $N=500$ muestras cada una de tamaño $n=100$.  A continuación se muestra el histograma de las medias (utilizando densidad en lugar de conteos) y se compara con la respectiva función de densidad.
+
+```{r}
+#| code-fold: true
+
+N <- 500
+n <- 100
+media <- 150
+desvstd <- 15
+
+
+
+muestra <- tibble(Valor=rnorm(n, media, desvstd), Muestra="Muestra_1")
+
+for (j in 2:N) {
+  muestra_prev <- tibble(Valor=rnorm(n, media, desvstd), Muestra=paste("Muestra", j, sep="_"))
+  muestra <- bind_rows(muestra, muestra_prev)
+}
+
+muestra$Muestra <- factor(muestra$Muestra)
+tabla_medias <- muestra |> group_by(Muestra) |> summarise(Media=mean(Valor))
+
+ggplot(tabla_medias)+
+  geom_histogram(aes(Media, y=after_stat(density)), fill="olivedrab3", color="black")+
+  geom_function(fun=dnorm, color="firebrick", args = list(mean = 150, sd = 1.5), xlim=c(145,  155))+
+  theme_bw()
+
+
+
+```
+
+
+
+# Intervalos de confianza (varianza conocida)
+
+Generamos $N=20$ muestras cada una de tamaño $n=100$ de una variable aleatoria $X\sim N(150, 15^2)$, luego, la distribución muestral es $\bar{X}\sim N(150, 15^2/100)$, se grafican los intervalos de confianza al 95% con $z_{crit}=`r round(qnorm(0.975), 4)`$.
+
+
+```{r}
+#| code-fold: true
+N <- 20
+n <- 100
+
+media <- 150
+desvstd <- 15
+
+
+
+muestra <- tibble(Valor=rnorm(n, media, desvstd), Muestra=1)
+
+for (j in 2:N) {
+  muestra_prev <- tibble(Valor=rnorm(n, media, desvstd), Muestra= j)
+  muestra <- bind_rows(muestra, muestra_prev)
+}
+
+muestra$Muestra <- factor(muestra$Muestra)
+tabla_resumen <- muestra |> group_by(Muestra) |> summarise(Media=mean(Valor), DS= sd(Valor))
+
+
+zcrit <- qnorm(0.975)
+
+
+tabla_resumen <- tabla_resumen |> mutate(lower= Media-zcrit* 15/ sqrt(n), upper= Media+zcrit* 15/ sqrt(n))
+
+ggplot(tabla_resumen)+
+  geom_pointrange(aes(Muestra, Media, ymin= lower, ymax=upper, color=Muestra), show.legend = FALSE)+
+  geom_hline(aes(yintercept = media), color="firebrick", linetype=2)+
+   theme_bw()
+
+```
+
+
+
+Con barras de error:
+
+```{r}
+#| code-fold: true
+ggplot(tabla_resumen)+
+  #geom_col(aes(Muestra, Media), fill="deeppink", alpha=0.5, color="black")+
+  geom_errorbar(aes(Muestra, ymin= lower, ymax=upper, color=Muestra), show.legend = FALSE, width=0.5)+
+  geom_point(aes(Muestra, Media, color=Muestra), show.legend = FALSE, size=1.8)+
+  geom_hline(aes(yintercept = media), color="firebrick", linetype=2)+
+   theme_bw()
+
+
+```
+
+
+
+
+# Intervalos de confianza (varianza desconocida)
+
+Se grafican los intervalos de confianza al 95% con $t_{crit}=`r round(qt(0.975, 99), 4)`$.
+
+
+
+```{r}
+#| code-fold: true
+
+
+tcrit <- qt(0.975, 99)
+
+
+tabla_resumen <- tabla_resumen |> mutate(t_lower= Media-tcrit* DS/ sqrt(n), t_upper= Media+tcrit* DS/ sqrt(n))
+
+ggplot(tabla_resumen)+
+  geom_pointrange(aes(Muestra, Media, ymin= t_lower, ymax=t_upper, color=Muestra), show.legend = FALSE)+
+  geom_hline(aes(yintercept = media), color="firebrick", linetype=2)+
+   theme_bw()
+```
+
+
+Con barras de error:
+
+```{r}
+#| code-fold: true
+ggplot(tabla_resumen)+
+  geom_errorbar(aes(Muestra, ymin= t_lower, ymax=t_upper, color=Muestra), show.legend = FALSE, width=0.5)+
+  geom_point(aes(Muestra, Media, color=Muestra), show.legend = FALSE, size=1.8)+
+  geom_hline(aes(yintercept = media), color="firebrick", linetype=2)+
+   theme_bw()
+
+
+```
+
+
+# Teorema central del límite
+
+Consideremos $X\sim Poisson(2.5)$, la función de probabilidad:
+
+
+
+```{r}
+#| code-fold: true
+
+tabla_poisson <- tibble(x=0:10, prob=dpois(x, 2.5))
+
+
+ggplot(tabla_poisson)+
+  geom_segment(aes(x=x, xend=x, y=0, yend=prob), color="yellow3")+
+  geom_point(aes(x, prob), color="red", size=2)+
+  theme_bw()
+
+```
+Generamos múltiples muestras ($N$) y verificamos que $\bar{X}\sim N(2.5, 2.5/100)$, donde $n=100$ es el tamaño de cada muestra.
+
+
+```{r}
+#| code-fold: true
+N <- 500
+n <- 100
+
+media <- 2.5
+
+muestra <- tibble(Valor= rpois(n, media), Muestra=1)
+
+for (j in 2:N) {
+  muestra_prev <- tibble(Valor=rpois(n, media), Muestra= j)
+  muestra <- bind_rows(muestra, muestra_prev)
+}
+
+muestra$Muestra <- factor(muestra$Muestra)
+tabla_resumen <- muestra |> group_by(Muestra) |> summarise(Media=mean(Valor), DS= sd(Valor))
+
+ggplot(tabla_resumen)+
+  geom_histogram(aes(Media, y=after_stat(density)), fill="deeppink", color="black")+
+  geom_function(fun=dnorm, color="firebrick", args = list(mean = 2.5, sd = sqrt(2.5/100)), xlim=c(2,  3))+
+  theme_bw()
+
+# tabla_resumen |> filter(Media<2)
+# muestra |> filter(Muestra==107) |> ggplot()+
+#   geom_histogram(aes(Valor),  fill="green", color="black")+
+#   theme_bw()
+```
+
+
+
+

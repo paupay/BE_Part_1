@@ -1,0 +1,78 @@
+---
+title: "Wild Blueberry EDA"
+format: html
+editor: visual
+---
+
+```{r}
+#| code-fold: true
+#| label: load-packages
+#| warning: false
+#| message: false
+
+
+library(tidyverse)
+library(ggthemes)
+library(RColorBrewer)
+library(plotly)
+library(pheatmap)
+library(corrplot)
+library(plotrix)
+library(tastypie)
+
+library(gplots)
+library(ggmosaic)
+library(treemapify)
+library(ggridges)
+library(ggalluvial)
+library(scatterPlotMatrix)
+
+library(readxl)
+library(writexl)
+
+```
+
+# Cargamos el conjunto de datos
+
+
+```{r}
+#| code-fold: true
+
+datos <-  read_csv("./Data_input/Data_blueberry.csv")
+#datos$Class <- factor(datos$Class)
+
+glimpse(datos)
+datos$clonesize_factor <- factor(datos$clonesize)
+
+```
+
+# Resumen estadístico 
+
+```{r}
+#| code-fold: true
+
+summary(datos)
+
+```
+
+
+
+
+
+
+```{r}
+names_num <- names(dplyr::select(datos, MaxOfUpperTRange:yield))
+
+data_p_clonesize <- tibble(Variable=names_num[1], 
+                        Valor_p=summary(aov(eval(as.name(names_num[1])) ~ clonesize_factor, data=datos, na.action=na.omit))[[1]][["Pr(>F)"]][1])
+names_length <- length(names_num)
+
+for(k in 2:names_length){
+  data_p_prev <- tibble(Variable=names_num[k], 
+                             Valor_p=summary(aov(eval(as.name(names_num[k])) ~ clonesize_factor, data=datos, na.action=na.omit))[[1]][["Pr(>F)"]][1])
+   data_p_clonesize<- bind_rows(data_p_clonesize, data_p_prev)
+}
+
+
+```
+
